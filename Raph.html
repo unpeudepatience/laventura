@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Une aventure pour toi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jost:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #faf7f2; --ink: #1a1612; --rose: #c9847a;
+    --rose-light: #e8c4bf; --gold: #b8975a; --muted: #8a7d72; --card: #f5f0e8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: var(--cream); color: var(--ink); font-family: 'Jost', sans-serif; font-weight: 300; overflow-x: hidden; }
+
+  .petal-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .petal { position: absolute; width: 8px; height: 14px; border-radius: 50% 0 50% 0; opacity: 0; animation: fall linear infinite; }
+  @keyframes fall {
+    0% { transform: translateY(-20px) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.4; } 90% { opacity: 0.2; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+  }
+
+  .screen { display: none; min-height: 100vh; position: relative; z-index: 1; padding: 60px 24px 80px; max-width: 480px; margin: 0 auto; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .screen.active { display: flex; animation: fadeUp .6s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  .display { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.4rem, 8vw, 3.8rem); font-weight: 300; line-height: 1.1; letter-spacing: -.02em; }
+  .display em { font-style: italic; color: var(--rose); }
+  h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.5rem, 5vw, 2.2rem); font-weight: 300; margin-bottom: 8px; }
+  .label { font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+  p { font-size: .95rem; line-height: 1.8; color: var(--muted); max-width: 380px; }
+
+  .divider { display: flex; align-items: center; gap: 16px; margin: 32px 0; width: 100%; max-width: 320px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--rose-light); }
+  .divider span { font-size: 1.2rem; }
+
+  /* ── OVERLAY FLEUR ── */
+  .flower-reveal { display: none; flex-direction: column; align-items: center; position: fixed; inset: 0; z-index: 100; background: var(--cream); justify-content: center; }
+  .flower-reveal.active { display: flex; }
+  .flower-reveal svg { opacity: 0; transform: scale(0.2); transition: opacity .7s ease, transform 1s cubic-bezier(.34,1.56,.64,1); }
+  .flower-reveal.bloomed svg { opacity: 1; transform: scale(1); }
+  .flower-reveal .bloom-text { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-style: italic; color: var(--muted); margin-top: 28px; opacity: 0; transition: opacity .6s ease .5s; }
+  .flower-reveal.bloomed .bloom-text { opacity: 1; }
+  .flower-reveal .continue-btn { margin-top: 32px; opacity: 0; transition: opacity .5s ease 1s; }
+  .flower-reveal.bloomed .continue-btn { opacity: 1; }
+
+  /* bouquet final overlay */
+  .bouquet-reveal { display: none; flex-direction: column; align-items: center; position: fixed; inset: 0; z-index: 100; background: var(--cream); justify-content: center; padding: 40px 24px; }
+  .bouquet-reveal.active { display: flex; animation: fadeUp .5s ease both; }
+  .bouquet-reveal .bouquet-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.6rem,6vw,2.4rem); font-weight: 300; font-style: italic; color: var(--ink); margin-top: 24px; opacity: 0; transition: opacity .8s ease .5s; }
+  .bouquet-reveal.shown .bouquet-title { opacity: 1; }
+  .bouquet-reveal .bouquet-sub { font-size: .85rem; color: var(--muted); margin-top: 12px; opacity: 0; transition: opacity .6s ease 1s; line-height: 1.7; }
+  .bouquet-reveal.shown .bouquet-sub { opacity: 1; }
+  .bouquet-reveal .continue-btn { margin-top: 32px; opacity: 0; transition: opacity .5s ease 1.5s; }
+  .bouquet-reveal.shown .continue-btn { opacity: 1; }
+
+  .burst-petal { position: absolute; border-radius: 50% 0 50% 0; opacity: 0; pointer-events: none; }
+  @keyframes burst {
+    0% { opacity: 1; transform: translate(0,0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(var(--tr)) scale(0.3); }
+  }
+
+  .place-card { background: var(--card); border: 1px solid var(--rose-light); border-radius: 16px; padding: 28px 24px; margin: 24px 0; width: 100%; max-width: 380px; text-align: left; }
+  .place-card .place-name { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; margin-bottom: 6px; }
+  .place-card .place-hint { font-size: .85rem; color: var(--muted); line-height: 1.7; }
+
+  .input-wrap { width: 100%; max-width: 360px; margin-top: 24px; }
+  input[type="text"] { width: 100%; padding: 16px 20px; border: 1px solid var(--rose-light); border-radius: 50px; background: white; font-family: 'Jost', sans-serif; font-size: .95rem; color: var(--ink); outline: none; transition: border-color .3s; text-align: center; }
+  input[type="text"]:focus { border-color: var(--rose); }
+  input[type="text"]::placeholder { color: var(--muted); }
+
+  .btn { display: inline-block; margin-top: 20px; padding: 16px 40px; border-radius: 50px; border: none; cursor: pointer; font-family: 'Jost', sans-serif; font-weight: 400; font-size: .85rem; letter-spacing: .1em; text-transform: uppercase; transition: all .25s; }
+  .btn-primary { background: var(--rose); color: white; }
+  .btn-primary:hover { background: #b8736a; transform: translateY(-2px); }
+  .btn-outline { background: transparent; color: var(--rose); border: 1px solid var(--rose); }
+  .btn-outline:hover { background: var(--rose); color: white; transform: translateY(-2px); }
+
+  .error-msg { font-size: .85rem; color: var(--rose); margin-top: 12px; height: 20px; font-style: italic; }
+  .hint-msg { font-size: .82rem; color: var(--gold); margin-top: 8px; font-style: italic; opacity: 0; transition: opacity .4s; }
+  .hint-msg.visible { opacity: 1; }
+
+  .rewards { display: none; flex-direction: column; gap: 16px; width: 100%; max-width: 380px; margin-top: 24px; animation: fadeUp .5s ease both; }
+  .rewards.visible { display: flex; }
+  .reward-card { background: white; border: 1px solid var(--rose-light); border-radius: 14px; padding: 20px 22px; text-align: left; position: relative; overflow: hidden; }
+  .reward-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--rose); }
+  .reward-card .reward-label { font-size: .65rem; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .reward-card .reward-value { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; color: var(--ink); }
+  .reward-card .reward-sub { font-size: .8rem; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+
+  .progress-bar { width: 100%; max-width: 320px; height: 4px; background: var(--rose-light); border-radius: 4px; margin: 32px 0 8px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--rose); border-radius: 4px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+  .progress-label { font-size: .75rem; color: var(--muted); margin-bottom: 24px; }
+
+  .big-message { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem,7vw,3rem); font-weight: 300; font-style: italic; line-height: 1.3; color: var(--ink); margin: 16px 0; }
+  .phone-reveal { font-family: 'Cormorant Garamond', serif; font-size: 2rem; letter-spacing: .12em; color: var(--rose); margin: 8px 0 24px; }
+  .fragments { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
+  .fragment { background: var(--card); border: 1px solid var(--rose-light); border-radius: 8px; padding: 8px 14px; font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; }
+  .flower-icon { font-size: 3rem; margin-bottom: 24px; display: block; animation: sway 4s ease-in-out infinite; }
+  @keyframes sway { 0%,100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+</style>
+</head>
+<body>
+<div class="petal-bg" id="petalBg"></div>
+
+<!-- ══ OVERLAY FLEUR UNIQUE ══ -->
+<div class="flower-reveal" id="flowerReveal">
+  <svg id="flowerSvg" width="220" height="220" viewBox="-110 -110 220 220"></svg>
+  <div class="bloom-text" id="bloomText"></div>
+  <button class="btn btn-outline continue-btn" id="continueBtn">Découvrir ma récompense</button>
+</div>
+
+<!-- ══ OVERLAY BOUQUET FINAL ══ -->
+<div class="bouquet-reveal" id="bouquetReveal">
+  <svg id="bouquetSvg" width="320" height="300" viewBox="-160 -140 320 300"></svg>
+  <div class="bouquet-title" id="bouquetTitle">Ton bouquet est complet.</div>
+  <div class="bouquet-sub" id="bouquetSub">Quelqu'un l'a pensé pour toi.</div>
+  <button class="btn btn-outline continue-btn" id="bouquetContinueBtn" onclick="hideBouquetReveal()">Voir la révélation finale</button>
+</div>
+
+<!-- ══ INTRO ══ -->
+<div class="screen active" id="screen-intro">
+  <span style="font-size:3rem;margin-bottom:24px;display:block;animation:sway 4s ease-in-out infinite">🌷</span>
+  <p class="label">Raphaëlle</p>
+  <h1 class="display">Quelque chose <em>vous appelle</em>.</h1>
+  <div class="divider"><span>✦</span></div>
+  <p style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1.05rem;line-height:2;color:var(--ink)">
+    Vous avez été choisie par mon cœur,<br>
+    Et je vous invite à partir à la quête des fleurs.<br><br>
+    Au total, cinq vous attendent dans vos rues,<br>
+    Chacune cache un fragment, une surprise inattendue.<br><br>
+    Réunissez le bouquet en entier,<br>
+    Et un dernier secret vous sera révélé.
+  </p>
+  <button class="btn btn-primary" onclick="goTo(1)" style="margin-top:40px">Commencer l'aventure</button>
+</div>
+
+<!-- ══ ÉTAPE 1 — Grand bassin du Luxembourg ══ -->
+<div class="screen" id="screen-1">
+  <p class="label">Fleur 1 · 5</p>
+  <div class="progress-bar"><div class="progress-fill" id="p1" style="width:0%"></div></div>
+  <p class="progress-label">Ton aventure commence ici.</p>
+  <h2>Le cœur du jardin</h2>
+  <div class="divider"><span>✦</span></div>
+  <div class="place-card">
+    <div class="place-name">Grand bassin — Jardin du Luxembourg</div>
+    <div class="place-hint">Au cœur du jardin, un grand bassin octogonal où les enfants font voguer des bateaux.<br><br><em>Quelle est la couleur des chaises qui l'entourent ?</em></div>
+  </div>
+  <div class="input-wrap">
+    <input type="text" id="ans1" placeholder="Ta réponse…" onkeypress="checkEnter(event,1)">
+    <div class="error-msg" id="err1"></div>
+    <div class="hint-msg" id="hint1">Tout Paris s'y prélasse l'été, dans des chaises de cette couleur…</div>
+    <button class="btn btn-primary" onclick="checkAnswer(1)">Valider</button>
+  </div>
+  <div class="rewards" id="rewards-1">
+    <div class="reward-card">
+      <div class="reward-label">Une idée pour nous</div>
+      <div class="reward-value">Une nuit de cinéma 🎬</div>
+      <div class="reward-sub">Sous les étoiles ou dans une salle qui a du caractère. Le genre d'endroit où le film devient un prétexte.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de chiffres</div>
+      <div class="reward-value" style="letter-spacing:.1em">07</div>
+      <div class="reward-sub">Garde-le précieusement.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de message</div>
+      <div class="reward-value">TU</div>
+    </div>
+    <button class="btn btn-outline" onclick="goTo(2)" style="margin-top:8px">Vers la fleur suivante →</button>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 2 — Red Wheelbarrow ══ -->
+<div class="screen" id="screen-2">
+  <p class="label">Fleur 2 · 5</p>
+  <div class="progress-bar"><div class="progress-fill" id="p2" style="width:0%"></div></div>
+  <p class="progress-label">Tu avances bien.</p>
+  <h2>La librairie aux mille pages</h2>
+  <div class="divider"><span>✦</span></div>
+  <div class="place-card">
+    <div class="place-name">The Red Wheelbarrow Bookstore</div>
+    <div class="place-hint">Juste en face du jardin, rue de Médicis, une librairie anglophone au nom poétique t'attend.<br><br><em>Quel objet donne son nom à cette librairie ?</em></div>
+  </div>
+  <div class="input-wrap">
+    <input type="text" id="ans2" placeholder="Ta réponse…" onkeypress="checkEnter(event,2)">
+    <div class="error-msg" id="err2"></div>
+    <div class="hint-msg" id="hint2">Traduis le nom en français… c'est un outil de jardin.</div>
+    <button class="btn btn-primary" onclick="checkAnswer(2)">Valider</button>
+  </div>
+  <div class="rewards" id="rewards-2">
+    <div class="reward-card">
+      <div class="reward-label">Une idée pour nous</div>
+      <div class="reward-value">Un road trip en van 🚐</div>
+      <div class="reward-sub">La route, une playlist, le pare-brise comme seul horizon. Pas d'itinéraire fixe — juste partir.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de chiffres</div>
+      <div class="reward-value" style="letter-spacing:.1em">55</div>
+      <div class="reward-sub">Il se dessine, peu à peu.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de message</div>
+      <div class="reward-value">SERAS</div>
+    </div>
+    <button class="btn btn-outline" onclick="goTo(3)" style="margin-top:8px">Vers la fleur suivante →</button>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 3 — Fontaine des 4 continents ══ -->
+<div class="screen" id="screen-3">
+  <p class="label">Fleur 3 · 5</p>
+  <div class="progress-bar"><div class="progress-fill" id="p3" style="width:0%"></div></div>
+  <p class="progress-label">À mi-chemin.</p>
+  <h2>Les femmes qui portent le monde</h2>
+  <div class="divider"><span>✦</span></div>
+  <div class="place-card">
+    <div class="place-name">Fontaine des Quatre-Parties-du-Monde</div>
+    <div class="place-hint">Sors du jardin par le sud, avenue de l'Observatoire. Une fontaine majestueuse t'attend.<br><br><em>Combien de femmes portent le globe céleste ?</em></div>
+  </div>
+  <div class="input-wrap">
+    <input type="text" id="ans3" placeholder="Ta réponse…" onkeypress="checkEnter(event,3)">
+    <div class="error-msg" id="err3"></div>
+    <div class="hint-msg" id="hint3">Elles représentent les continents du monde…</div>
+    <button class="btn btn-primary" onclick="checkAnswer(3)">Valider</button>
+  </div>
+  <div class="rewards" id="rewards-3">
+    <div class="reward-card">
+      <div class="reward-label">Une idée pour nous</div>
+      <div class="reward-value">Une randonnée 🥾</div>
+      <div class="reward-sub">Marcher ensemble, prendre le temps, s'arrêter quand l'envie vient. Les meilleures conversations se font en mouvement.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de chiffres</div>
+      <div class="reward-value" style="letter-spacing:.1em">70</div>
+      <div class="reward-sub">Encore deux fragments à trouver.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de message</div>
+      <div class="reward-value">MA</div>
+    </div>
+    <button class="btn btn-outline" onclick="goTo(4)" style="margin-top:8px">Vers la fleur suivante →</button>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 4 — Fontaine Médicis ══ -->
+<div class="screen" id="screen-4">
+  <p class="label">Fleur 4 · 5</p>
+  <div class="progress-bar"><div class="progress-fill" id="p4" style="width:0%"></div></div>
+  <p class="progress-label">Presque là.</p>
+  <h2>Le géant et les amoureux</h2>
+  <div class="divider"><span>✦</span></div>
+  <div class="place-card">
+    <div class="place-name">Fontaine Médicis</div>
+    <div class="place-hint">Retourne dans le jardin, vers l'allée d'eau bordée de platanes. L'endroit le plus romantique du Luxembourg.<br><br><em>Quel est le prénom du géant qui épie les amoureux dans la sculpture ?</em></div>
+  </div>
+  <div class="input-wrap">
+    <input type="text" id="ans4" placeholder="Ta réponse…" onkeypress="checkEnter(event,4)">
+    <div class="error-msg" id="err4"></div>
+    <div class="hint-msg" id="hint4">C'est un cyclope de la mythologie grecque, ennemi d'Ulysse…</div>
+    <button class="btn btn-primary" onclick="checkAnswer(4)">Valider</button>
+  </div>
+  <div class="rewards" id="rewards-4">
+    <div class="reward-card">
+      <div class="reward-label">Une idée pour nous</div>
+      <div class="reward-value">Un séjour au cœur des bois 🌲</div>
+      <div class="reward-sub">Une cabane construite à la main, perdue quelque part entre forêt et prairie. Bain nordique, silence, déconnexion totale. Juste nous.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de chiffres</div>
+      <div class="reward-value" style="letter-spacing:.1em">27</div>
+      <div class="reward-sub">Plus qu'un fragment.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de message</div>
+      <div class="reward-value">PREMIÈRE</div>
+    </div>
+    <button class="btn btn-outline" onclick="goTo(5)" style="margin-top:8px">Vers la dernière fleur →</button>
+  </div>
+</div>
+
+<!-- ══ ÉTAPE 5 — Fontaine Saint-Sulpice ══ -->
+<div class="screen" id="screen-5">
+  <p class="label">Fleur 5 · 5</p>
+  <div class="progress-bar"><div class="progress-fill" id="p5" style="width:0%"></div></div>
+  <p class="progress-label">La dernière fleur.</p>
+  <h2>La fontaine aux quatre évêques</h2>
+  <div class="divider"><span>✦</span></div>
+  <div class="place-card">
+    <div class="place-name">Fontaine Saint-Sulpice</div>
+    <div class="place-hint">Dirige-toi vers la place Saint-Sulpice, à deux pas du jardin. Une fontaine monumentale t'y attend.<br><br><em>Combien de niveaux compte cette fontaine ?</em></div>
+  </div>
+  <div class="input-wrap">
+    <input type="text" id="ans5" placeholder="Ta réponse…" onkeypress="checkEnter(event,5)">
+    <div class="error-msg" id="err5"></div>
+    <div class="hint-msg" id="hint5">Lève les yeux et compte de bas en haut…</div>
+    <button class="btn btn-primary" onclick="checkAnswer(5)">Valider</button>
+  </div>
+  <div class="rewards" id="rewards-5">
+    <div class="reward-card">
+      <div class="reward-label">Une idée pour nous</div>
+      <div class="reward-value">Carte blanche ✨</div>
+      <div class="reward-sub">La cinquième aventure t'appartient. Choisis-la.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de chiffres</div>
+      <div class="reward-value" style="letter-spacing:.1em">42</div>
+      <div class="reward-sub">Le dernier. Tu y es presque.</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fragment de message</div>
+      <div class="reward-value">ESCALE</div>
+    </div>
+    <button class="btn btn-outline" onclick="showBouquetAnimation(function(){})" style="margin-top:8px">Voir la révélation finale →</button>
+  </div>
+</div>
+
+<!-- ══ ÉCRAN FIN ══ -->
+<div class="screen" id="screen-end">
+  <span style="font-size:2.5rem;margin-bottom:8px">🌸</span>
+  <p class="label">Fin de l'aventure</p>
+  <div class="big-message">"Tu seras<br>ma première<br>escale."</div>
+  <div class="divider"><span>✦</span></div>
+  <p style="margin-bottom:24px">Les fragments que tu as récoltés… c'était un numéro.</p>
+  <div class="phone-reveal" id="phoneReveal"></div>
+  <div class="fragments" id="wordFragments">
+    <div class="fragment">TU</div><div class="fragment">SERAS</div>
+    <div class="fragment">MA</div><div class="fragment">PREMIÈRE</div><div class="fragment">ESCALE</div>
+  </div>
+  <div class="divider"><span>✦</span></div>
+
+  <p class="label" style="margin-bottom:16px">Tes récompenses</p>
+  <div style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:10px;margin-bottom:32px">
+    <div class="reward-card">
+      <div class="reward-label">Fleur 1</div>
+      <div class="reward-value" style="font-size:1.1rem">Une nuit de cinéma 🎬</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fleur 2</div>
+      <div class="reward-value" style="font-size:1.1rem">Un road trip en van 🚐</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fleur 3</div>
+      <div class="reward-value" style="font-size:1.1rem">Une randonnée 🥾</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fleur 4</div>
+      <div class="reward-value" style="font-size:1.1rem">Un séjour au cœur des bois 🌲</div>
+    </div>
+    <div class="reward-card">
+      <div class="reward-label">Fleur 5</div>
+      <div class="reward-value" style="font-size:1.1rem">Carte blanche ✨</div>
+    </div>
+  </div>
+
+  <div class="place-card" style="text-align:center">
+    <div class="place-hint" style="font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-style:italic;color:var(--ink);line-height:1.9">
+      Envoie le numéro de ta fleur préférée<br>pour sélectionner ton date.<br><br>
+      <span style="font-size:1.3rem;letter-spacing:.12em;color:var(--rose);font-family:'Cormorant Garamond',serif">07 55 70 27 42</span>
+    </div>
+  </div>
+
+  <div class="divider"><span>✦</span></div>
+  <p style="font-style:italic;font-size:.9rem">Début juillet sera rempli d'activités,<br>et tout ça ne fait que commencer.</p>
+</div>
+
+<script>
+const CONFIG = {
+  answers: {
+    1: ["vert","verte","vertes","verts"],
+    2: ["brouette","wheelbarrow"],
+    3: ["4","quatre"],
+    4: ["polypheme","polyphème"],
+    5: ["3","trois"],
+    final: ["salut","bonjour","coucou","hello","bonsoir"]
+  },
+  phone: "07 55 70 27 42",
+  errors: [
+    "Cette fleur n'est pas encore prête à éclore…",
+    "Le vent a emporté ta réponse. Essaie encore.",
+    "Presque… laisse tes yeux chercher un peu plus.",
+    "Quelque chose t'échappe encore. Regarde autour de toi."
+  ]
+};
+
+// Ordre fleurs : grosse / petite / grosse / petite / grosse
+// 1-dahlia, 2-gypsophile, 3-zinnia, 4-echinacee, 5-delphinium
+// Étapes : 1=bassin(dahlia), 2=wheelbarrow(gypsophile), 3=4continents(zinnia), 4=medicis(echinacee), 5=sulpice(delphinium)
+
+const FLOWERS = {
+  1: {
+    text: "Dahlia.",
+    draw: (svg) => {
+      [0,36,72,108,144,180,216,252,288,324].forEach((a,i) => {
+        addEl(svg,'ellipse',{cx:0,cy:-65,rx:12,ry:26,fill:i%2?'#d45f75':'#e8748a',opacity:.9,transform:`rotate(${a})`});
+      });
+      [18,54,90,126,162,198,234,270].forEach((a,i) => {
+        addEl(svg,'ellipse',{cx:0,cy:-40,rx:8,ry:17,fill:i%2?'#e88098':'#f0a0b0',opacity:.95,transform:`rotate(${a})`});
+      });
+      addEl(svg,'circle',{cx:0,cy:0,r:18,fill:'#f5c842'});
+      addEl(svg,'circle',{cx:0,cy:0,r:10,fill:'#d4a020'});
+    }
+  },
+  2: {
+    text: "Gypsophile.",
+    draw: (svg) => {
+      const branches = [[-55,10,-80,-30],[-55,10,-32,-26],[0,0,-20,-28],[0,0,20,-28],[55,10,32,-26],[55,10,78,-28]];
+      addLine(svg,0,80,'-55',10,'#9aba8a',1.5);addLine(svg,0,80,0,0,'#9aba8a',1.5);addLine(svg,0,80,55,10,'#9aba8a',1.5);
+      branches.forEach(([x1,y1,x2,y2])=>addLine(svg,x1,y1,x2,y2,'#9aba8a',1));
+      [[-80,-32],[-32,-28],[-20,-31],[20,-31],[32,-28],[78,-31],[-55,8],[55,8],[0,-2],[-65,-10],[65,-10],[-10,-16],[10,-16]].forEach(([x,y])=>{
+        addEl(svg,'circle',{cx:x,cy:y,r:5,fill:'white',stroke:'#e0d0d0','stroke-width':.5});
+      });
+    }
+  },
+  3: {
+    text: "Zinnia.",
+    draw: (svg) => {
+      [0,45,90,135,180,225,270,315].forEach((a,i)=>{
+        addEl(svg,'ellipse',{cx:0,cy:-65,rx:14,ry:28,fill:i%2?'#d04818':'#e8602a',opacity:.9,transform:`rotate(${a})`});
+      });
+      [22,67,112,157,202,247,292,337].forEach((a,i)=>{
+        addEl(svg,'ellipse',{cx:0,cy:-40,rx:10,ry:18,fill:i%2?'#e07038':'#f0804a',opacity:.95,transform:`rotate(${a})`});
+      });
+      addEl(svg,'circle',{cx:0,cy:0,r:16,fill:'#2d6a2d'});
+      addEl(svg,'circle',{cx:0,cy:0,r:9,fill:'#4a9a4a'});
+      [[0,-6],[5,3],[-5,3]].forEach(([x,y])=>addEl(svg,'circle',{cx:x,cy:y,r:2,fill:'#f5d040'}));
+    }
+  },
+  4: {
+    text: "Échinacée.",
+    draw: (svg) => {
+      [0,40,80,120,160,200,240,280,320].forEach((a,i)=>{
+        addEl(svg,'ellipse',{cx:0,cy:-65,rx:9,ry:28,fill:i%2?'#c06888':'#d4789a',opacity:.85,transform:`rotate(${a})`});
+      });
+      addEl(svg,'circle',{cx:0,cy:0,r:22,fill:'#8b4a1a'});
+      addEl(svg,'circle',{cx:0,cy:0,r:18,fill:'#a05820'});
+      [[0,-13],[12,-6],[12,6],[0,13],[-12,6],[-12,-6]].forEach(([x,y])=>addEl(svg,'circle',{cx:x,cy:y,r:2.5,fill:'#c07830'}));
+      addEl(svg,'circle',{cx:0,cy:0,r:3,fill:'#d08840'});
+    }
+  },
+  5: {
+    text: "Delphinium.",
+    draw: (svg) => {
+      addLine(svg,0,80,0,-30,'#6a9a5a',3);
+      [[-22,-50,'−20'],[16,-20,'15'],[-14,10,'−10'],[12,40,'10']].forEach(([x,y,r])=>{
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('transform',`translate(${x},${y})`);
+        addElTo(g,'ellipse',{cx:0,cy:0,rx:16,ry:12,fill:'#6b7fd4',transform:`rotate(${r})`});
+        addElTo(g,'ellipse',{cx:0,cy:0,rx:10,ry:7,fill:'#8b9fe4',transform:`rotate(${r})`});
+        addElTo(g,'circle',{cx:0,cy:0,r:4,fill:'#fff9c4'});
+        svg.appendChild(g);
+      });
+      addEl(svg,'ellipse',{cx:0,cy:-28,rx:6,ry:10,fill:'#4a5eb0'});
+    }
+  }
+};
+
+// ── BOUQUET FINAL (toutes les fleurs ensemble) ──
+function drawBouquet(svg) {
+  svg.innerHTML = '';
+  // tige centrale
+  addLine(svg,0,130,0,20,'#6a9a5a',3);
+  // tiges latérales
+  addLine(svg,-60,100,-80,0,'#6a9a5a',2);
+  addLine(svg,60,100,80,0,'#6a9a5a',2);
+  addLine(svg,-30,110,-40,10,'#9aba8a',1.5);
+  addLine(svg,30,110,40,10,'#9aba8a',1.5);
+  // feuilles
+  drawLeaf(svg,-20,60,-10);
+  drawLeaf(svg,20,60,10);
+
+  // Fleur centrale — Dahlia (grosse)
+  drawFlowerAt(svg, 0, -20, 1.0, 'dahlia');
+  // Gauche — Zinnia (grosse)
+  drawFlowerAt(svg, -75, 10, 0.75, 'zinnia');
+  // Droite — Échinacée (grosse)
+  drawFlowerAt(svg, 75, 10, 0.75, 'echinacea');
+  // Petit gauche — Gypsophile
+  drawMiniGypsophile(svg, -38, -30, 0.55);
+  // Petit droit — Delphinium
+  drawMiniDelphinium(svg, 38, -55, 0.55);
+}
+
+function drawLeaf(svg, cx, cy, angle) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg','ellipse');
+  el.setAttribute('cx', cx); el.setAttribute('cy', cy);
+  el.setAttribute('rx', 10); el.setAttribute('ry', 20);
+  el.setAttribute('fill', '#7a9a60'); el.setAttribute('opacity', '0.8');
+  el.setAttribute('transform', `rotate(${angle}, ${cx}, ${cy})`);
+  svg.appendChild(el);
+}
+
+function drawFlowerAt(svg, tx, ty, scale, type) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
+  if (type === 'dahlia') {
+    [0,36,72,108,144,180,216,252,288,324].forEach((a,i) => addElTo(g,'ellipse',{cx:0,cy:-55,rx:11,ry:24,fill:i%2?'#d45f75':'#e8748a',opacity:.9,transform:`rotate(${a})`}));
+    [18,54,90,126,162,198,234,270].forEach((a,i) => addElTo(g,'ellipse',{cx:0,cy:-34,rx:7,ry:15,fill:i%2?'#e88098':'#f0a0b0',opacity:.95,transform:`rotate(${a})`}));
+    addElTo(g,'circle',{cx:0,cy:0,r:16,fill:'#f5c842'}); addElTo(g,'circle',{cx:0,cy:0,r:9,fill:'#d4a020'});
+  } else if (type === 'zinnia') {
+    [0,45,90,135,180,225,270,315].forEach((a,i) => addElTo(g,'ellipse',{cx:0,cy:-55,rx:13,ry:26,fill:i%2?'#d04818':'#e8602a',opacity:.9,transform:`rotate(${a})`}));
+    addElTo(g,'circle',{cx:0,cy:0,r:14,fill:'#2d6a2d'}); addElTo(g,'circle',{cx:0,cy:0,r:8,fill:'#4a9a4a'});
+  } else if (type === 'echinacea') {
+    [0,40,80,120,160,200,240,280,320].forEach((a,i) => addElTo(g,'ellipse',{cx:0,cy:-55,rx:8,ry:26,fill:i%2?'#c06888':'#d4789a',opacity:.85,transform:`rotate(${a})`}));
+    addElTo(g,'circle',{cx:0,cy:0,r:20,fill:'#8b4a1a'}); addElTo(g,'circle',{cx:0,cy:0,r:15,fill:'#a05820'});
+  }
+  svg.appendChild(g);
+}
+
+function drawMiniGypsophile(svg, tx, ty, scale) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
+  [[-40,0,-55,-35],[-40,0,-18,-32],[0,-10,-15,-40],[0,-10,15,-40],[40,0,18,-32],[40,0,52,-34]].forEach(([x1,y1,x2,y2])=>addLineTo(g,x1,y1,x2,y2,'#9aba8a',1.5));
+  [[-55,-38],[-18,-35],[-15,-43],[15,-43],[18,-35],[52,-37],[-40,-2],[40,-2],[0,-12]].forEach(([x,y])=>addElTo(g,'circle',{cx:x,cy:y,r:5,fill:'white',stroke:'#e0d0d0','stroke-width':.5}));
+  svg.appendChild(g);
+}
+
+function drawMiniDelphinium(svg, tx, ty, scale) {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
+  addLineTo(g,0,90,0,-40,'#6a9a5a',3);
+  [[-20,-50],[16,-20],[-14,10],[12,40]].forEach(([x,y],i)=>{
+    const sg = document.createElementNS('http://www.w3.org/2000/svg','g');
+    sg.setAttribute('transform',`translate(${x},${y})`);
+    addElTo(sg,'ellipse',{cx:0,cy:0,rx:15,ry:11,fill:'#6b7fd4',transform:`rotate(${i%2?15:-15})`});
+    addElTo(sg,'ellipse',{cx:0,cy:0,rx:9,ry:6,fill:'#8b9fe4',transform:`rotate(${i%2?15:-15})`});
+    addElTo(sg,'circle',{cx:0,cy:0,r:3,fill:'#fff9c4'});
+    g.appendChild(sg);
+  });
+  addElTo(g,'ellipse',{cx:0,cy:-38,rx:5,ry:9,fill:'#4a5eb0'});
+  svg.appendChild(g);
+}
+
+// ── HELPERS SVG ──
+function addEl(parent, tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+  parent.appendChild(el); return el;
+}
+function addElTo(parent, tag, attrs) { return addEl(parent, tag, attrs); }
+function addLine(parent, x1,y1,x2,y2, color, w) {
+  addEl(parent,'line',{x1,y1,x2,y2,stroke:color,'stroke-width':w});
+}
+function addLineTo(parent, x1,y1,x2,y2, color, w) { addLine(parent,x1,y1,x2,y2,color,w); }
+
+// ── PÉTALES FOND ──
+function initPetals() {
+  const c = document.getElementById('petalBg');
+  const colors = ['#e8c4bf','#f2d8d4','#d4a9a3','#f0e0dc','#c9847a44'];
+  for (let i=0;i<18;i++) {
+    const p = document.createElement('div'); p.className='petal';
+    p.style.cssText=`left:${Math.random()*100}%;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${8+Math.random()*12}s;animation-delay:${Math.random()*15}s;width:${6+Math.random()*6}px;height:${10+Math.random()*8}px;`;
+    c.appendChild(p);
+  }
+}
+
+// ── NAVIGATION ──
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const t = document.getElementById('screen-'+id);
+  if (t) { t.classList.add('active'); window.scrollTo({top:0,behavior:'smooth'}); }
+}
+
+// ── ANIMATION FLEUR UNIQUE ──
+let errorCount = {};
+
+function showFlowerAnimation(step, onDone) {
+  const data = FLOWERS[step];
+  if (!data) { onDone(); return; }
+  const overlay = document.getElementById('flowerReveal');
+  const svgEl   = document.getElementById('flowerSvg');
+  const textEl  = document.getElementById('bloomText');
+  const btn     = document.getElementById('continueBtn');
+  svgEl.innerHTML = '';
+  data.draw(svgEl);
+  textEl.textContent = data.text;
+  overlay.classList.remove('bloomed');
+  overlay.classList.add('active');
+  spawnBurst(overlay);
+  setTimeout(() => overlay.classList.add('bloomed'), 100);
+  btn.onclick = () => { overlay.classList.remove('active','bloomed'); onDone(); };
+}
+
+// ── ANIMATION BOUQUET FINAL ──
+function showBouquetAnimation(onDone) {
+  const overlay = document.getElementById('bouquetReveal');
+  const svgEl   = document.getElementById('bouquetSvg');
+  overlay.classList.remove('shown');
+  overlay.classList.add('active');
+  drawBouquet(svgEl);
+  spawnBurst(overlay);
+  setTimeout(() => overlay.classList.add('shown'), 200);
+  document.getElementById('bouquetContinueBtn').onclick = () => { hideBouquetReveal(); onDone(); };
+}
+
+function hideBouquetReveal() {
+  const overlay = document.getElementById('bouquetReveal');
+  overlay.classList.remove('active','shown');
+  showFinal();
+}
+
+function spawnBurst(container) {
+  const colors = ['#e8748a','#d45f75','#6b7fd4','#e8602a','#d4789a','#f5c842','#a05820'];
+  for (let i=0;i<24;i++) {
+    const p = document.createElement('div'); p.className='burst-petal';
+    const angle = Math.random()*360, dist = 80+Math.random()*140;
+    const tx = Math.cos(angle*Math.PI/180)*dist+'px', ty = Math.sin(angle*Math.PI/180)*dist+'px';
+    const size = 6+Math.random()*10;
+    p.style.cssText=`left:50%;top:50%;width:${size}px;height:${size*1.6}px;background:${colors[Math.floor(Math.random()*colors.length)]};--tx:${tx};--ty:${ty};--tr:${Math.random()*360}deg;animation:burst ${.6+Math.random()*.6}s ease-out ${Math.random()*.3}s forwards;`;
+    container.appendChild(p);
+    setTimeout(()=>p.remove(),1500);
+  }
+}
+
+// ── VALIDATION ──
+function normalize(str) {
+  return str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/[^a-z0-9\s]/g,'');
+}
+function checkEnter(e,step) { if(e.key==='Enter') checkAnswer(step); }
+
+function checkAnswer(step) {
+  const inputEl = document.getElementById(step==='final'?'ans-final':'ans'+step);
+  const errEl   = document.getElementById(step==='final'?'err-final':'err'+step);
+  const hintEl  = document.getElementById(step==='final'?'hint-final':'hint'+step);
+  const val     = normalize(inputEl.value);
+  const valids  = CONFIG.answers[step].map(normalize);
+  const ok      = val && valids.some(v=>val.includes(v)||v.includes(val));
+
+  if (!errorCount[step]) errorCount[step] = 0;
+
+  if (!val) { errEl.textContent = "Écris quelque chose d'abord…"; return; }
+
+  if (ok) {
+    errEl.textContent = '';
+    if (hintEl) hintEl.classList.remove('visible');
+    inputEl.style.borderColor = '#7ab87a';
+    inputEl.disabled = true;
+
+    if (step === 'final') {
+      // bouquet d'abord, puis écran final
+      showBouquetAnimation(() => {});
+    } else {
+      showFlowerAnimation(step, () => {
+        document.getElementById('rewards-'+step).classList.add('visible');
+        const fill = document.getElementById('p'+step);
+        if (fill) fill.style.width='100%';
+        window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+      });
+    }
+  } else {
+    errorCount[step]++;
+    errEl.textContent = CONFIG.errors[errorCount[step]%CONFIG.errors.length];
+    inputEl.style.borderColor = '#c9847a';
+    setTimeout(()=>{ inputEl.style.borderColor=''; },1500);
+    if (errorCount[step] >= 3 && hintEl) hintEl.classList.add('visible');
+  }
+}
+
+function showFinal() {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-end').classList.add('active');
+  document.getElementById('phoneReveal').textContent = CONFIG.phone;
+  document.querySelectorAll('#wordFragments .fragment').forEach((f,i)=>{
+    f.style.cssText='opacity:0;transform:translateY(10px);transition:all .4s ease '+(i*.15)+'s';
+    setTimeout(()=>{ f.style.opacity='1'; f.style.transform='translateY(0)'; },100+i*150);
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+initPetals();
+</script>
+</body>
+</html>
